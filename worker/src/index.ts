@@ -1,53 +1,69 @@
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Handle CORS preflight
+    // 处理 CORS 预检请求
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
 
+    // 只允许 POST
     if (request.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+      return jsonError('Method not allowed', 405);
     }
 
-    const formData = await request.formData();
-    const file = formData.get('image') as File;
-
-    if (!file) {
-      return new Response(JSON.stringify({ error: 'No image provided' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-      });
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return jsonError('Invalid form data', 400);
     }
 
-    // File size check (10MB)
+    const file = formData.get('image') as File | null;
+
+    // 校验是否有文件
+    if (!file || typeof file === 'string') {
+      return jsonError('No image provided', 400);
+    }
+
+    // 校验文件大小 ≤ 10MB
     if (file.size > 10 * 1024 * 1024) {
-      return new Response(JSON.stringify({ error: 'File too large. Max 10MB.' }), {
-        status: 413,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
-      });
+      return jsonError('File too large. Maximum size is 10MB.', 413);
     }
 
-    // Forward to remove.bg
+    // 校验文件格式
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      return jsonError('Unsupported file type. Please upload JPG, PNG, or WebP.', 400);
+    }
+
+    // 转发给 remove.bg API
     const bgFormData = new FormData();
     bgFormData.append('image_file', file);
     bgFormData.append('size', 'auto');
 
-    const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-      method: 'POST',
-      headers: { 'X-Api-Key': env.REMOVE_BG_API_KEY },
-      body: bgFormData,
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      return new Response(JSON.stringify({ error }), {
-        status: response.status,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders() },
+    let response: Response;
+    try {
+      response = await fetch('https://api.remove.bg/v1.0/removebg', {
+        method: 'POST',
+        headers: { 'X-Api-Key': env.REMOVE_BG_API_KEY },
+        body: bgFormData,
       });
+    } catch {
+      return jsonError('Failed to connect to remove.bg API', 502);
     }
 
+    // remove.bg 返回错误
+    if (!response.ok) {
+      if (response.status === 402 || response.status === 429) {
+        return jsonError('API quota exceeded. Please try again later.', 429);
+      }
+      const errText = await response.text().catch(() => 'Unknown error');
+      return jsonError(`remove.bg error: ${errText}`, response.status);
+    }
+
+    // 成功，直接将图片流返回给客户端
     const imageBuffer = await response.arrayBuffer();
     return new Response(imageBuffer, {
+      status: 200,
       headers: {
         'Content-Type': 'image/png',
         'Content-Disposition': 'attachment; filename="removed-bg.png"',
@@ -57,6 +73,18 @@ export default {
   },
 };
 
+/** 返回带 CORS 头的 JSON 错误响应 */
+function jsonError(message: string, status: number): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: {
+      'Content-Type': 'application/json',
+      ...corsHeaders(),
+    },
+  });
+}
+
+/** CORS 响应头 */
 function corsHeaders(): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': '*',

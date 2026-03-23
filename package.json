@@ -1,0 +1,13 @@
+{
+  "name": "image-background-remover",
+  "version": "1.0.0",
+  "private": true,
+  "description": "在线图片背景去除工具 - Cloudflare Workers + Next.js",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:worker": "cd worker && npm run dev",
+    "install:all": "cd frontend && npm install && cd ../worker && npm install",
+    "build": "cd frontend && npm run build",
+    "deploy": "bash scripts/deploy.sh"
+  }
+}

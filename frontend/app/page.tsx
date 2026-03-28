@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import Tool from './components/Tool';
 
 const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL || 'https://bg-remover-worker.yisuoyanyu1104.workers.dev';
@@ -135,7 +136,7 @@ export default function Home() {
           </a>
           <div className="hidden md:flex items-center gap-8 text-sm text-gray-600">
             <a href="#features" className="hover:text-gray-900 transition">功能</a>
-            <a href="#pricing" className="hover:text-gray-900 transition">定价</a>
+            <Link href="/pricing" className="hover:text-gray-900 transition">定价</Link>
             <a href="#faq" className="hover:text-gray-900 transition">FAQ</a>
           </div>
           <div className="flex items-center gap-3">
@@ -242,43 +243,29 @@ export default function Home() {
 
       {/* 定价 */}
       <section id="pricing" className="py-20 px-4 bg-white">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl font-bold text-gray-900 mb-3">简单透明的定价</h2>
-          <p className="text-gray-500 mb-12">免费开始，按需升级，无隐藏费用</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-            {/* 免费版 */}
-            <div className="border-2 border-gray-200 rounded-2xl p-8 text-left">
-              <div className="text-sm font-medium text-gray-500 mb-2">免费版</div>
-              <div className="text-4xl font-bold text-gray-900 mb-1">$0<span className="text-lg font-normal text-gray-400">/月</span></div>
-              <div className="text-sm text-gray-400 mb-6">永久免费</div>
-              <ul className="space-y-3 mb-8 text-sm text-gray-600">
-                {['10 次/月', '最大 10MB/张', '标准处理速度', '基础历史记录'].map(i => (
-                  <li key={i} className="flex items-center gap-2"><span className="text-green-500">✓</span>{i}</li>
-                ))}
-              </ul>
-              {!user ? (
-                <div className="g_id_signin w-full" data-type="standard" data-shape="rectangular"
-                  data-theme="outline" data-text="signup_with" data-size="large" data-locale="zh_CN" />
-              ) : (
-                <div className="text-center text-sm text-green-600 font-medium py-2">✓ 当前套餐</div>
-              )}
-            </div>
-            {/* Pro 版 */}
-            <div className="border-2 border-blue-500 rounded-2xl p-8 text-left relative overflow-hidden">
-              <div className="absolute top-4 right-4 bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">即将上线</div>
-              <div className="text-sm font-medium text-blue-600 mb-2">Pro 版</div>
-              <div className="text-4xl font-bold text-gray-900 mb-1">$9<span className="text-lg font-normal text-gray-400">/月</span></div>
-              <div className="text-sm text-gray-400 mb-6">年付 $79，省 $29</div>
-              <ul className="space-y-3 mb-8 text-sm text-gray-600">
-                {['200 次/月', '最大 25MB/张', '优先处理队列', '无限历史记录', '批量上传', '优先客服支持'].map(i => (
-                  <li key={i} className="flex items-center gap-2"><span className="text-blue-500">✓</span>{i}</li>
-                ))}
-              </ul>
-              <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition">
-                加入等待列表 →
-              </button>
-            </div>
+          <p className="text-gray-500 mb-10">免费开始，按需升级，无隐藏费用 · 积分包永不过期</p>
+          {/* 定价预览卡 */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            {[
+              { name: 'Starter', price: '$4.99', credits: '10 次', note: '永不过期' },
+              { name: 'Popular', price: '$12.99', credits: '30 次', note: '最受欢迎', highlight: true },
+              { name: 'Pro Pack', price: '$29.99', credits: '80 次', note: '最划算' },
+            ].map(p => (
+              <div key={p.name} className={`rounded-2xl p-5 border-2 ${p.highlight ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
+                <div className={`text-xs font-medium mb-1 ${p.highlight ? 'text-blue-600' : 'text-gray-400'}`}>{p.name}</div>
+                <div className="text-2xl font-bold text-gray-900">{p.price}</div>
+                <div className="text-sm text-gray-500">{p.credits}</div>
+                <div className={`text-xs mt-1 ${p.highlight ? 'text-blue-500' : 'text-gray-400'}`}>{p.note}</div>
+              </div>
+            ))}
           </div>
+          <Link href="/pricing"
+            className="inline-block bg-blue-500 hover:bg-blue-600 text-white font-semibold px-10 py-4 rounded-xl transition shadow-md text-lg">
+            查看完整定价 →
+          </Link>
+          <p className="text-sm text-gray-400 mt-4">✓ 也支持月订阅 · 7天退款保证 · 无隐藏费用</p>
         </div>
       </section>
 
@@ -335,7 +322,7 @@ export default function Home() {
           <div className="font-semibold text-white">🖼️ BG Remover</div>
           <div className="flex gap-6">
             <a href="#features" className="hover:text-white transition">功能</a>
-            <a href="#pricing" className="hover:text-white transition">定价</a>
+            <Link href="/pricing" className="hover:text-white transition">定价</Link>
             <a href="#faq" className="hover:text-white transition">FAQ</a>
           </div>
           <div>© 2026 BG Remover · Powered by remove.bg</div>

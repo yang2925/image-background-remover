@@ -3,5 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 account_id = "0c38849e184fbb6f0b9fef1616e36c2e"
 
+# D1 数据库绑定（创建后填入 database_id）
+[[d1_databases]]
+binding = "DB"
+database_name = "bg-remover-db"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
 # 通过命令行设置 secret：wrangler secret put REMOVE_BG_API_KEY
 # 请勿将 API Key 直接写入此文件

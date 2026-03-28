@@ -7,7 +7,7 @@ account_id = "0c38849e184fbb6f0b9fef1616e36c2e"
 [[d1_databases]]
 binding = "DB"
 database_name = "bg-remover-db"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "7ec3596b-849b-42f3-946b-20296fa5e027"
 
 # 通过命令行设置 secret：wrangler secret put REMOVE_BG_API_KEY
 # 请勿将 API Key 直接写入此文件

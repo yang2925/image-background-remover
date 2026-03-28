@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "build": "next build && npx @cloudflare/next-on-pages",
+    "start": "next start",
+    "pages:build": "npx @cloudflare/next-on-pages"
   },
   "dependencies": {
-    "next": "14.2.0",
+    "@cloudflare/next-on-pages": "^1.13.16",
+    "next": "^14.2.29",
     "next-auth": "^5.0.0-beta.30",
     "react": "^18",
     "react-dom": "^18"

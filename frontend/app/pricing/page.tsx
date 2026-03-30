@@ -2,6 +2,28 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
+// 动态加载 PayPal SDK，支持按 intent 切换
+function loadPayPalSDK(clientId: string, intent: 'capture' | 'subscription'): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // 移除已有的 PayPal script（切换 intent 时需要重新加载）
+    const existing = document.getElementById('paypal-sdk');
+    if (existing) {
+      const currentIntent = existing.getAttribute('data-intent');
+      if (currentIntent === intent) { resolve(); return; }
+      existing.remove();
+      // 清除 PayPal 全局对象缓存
+      delete (window as any).paypal;
+    }
+    const script = document.createElement('script');
+    script.id = 'paypal-sdk';
+    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD&intent=${intent}&vault=${intent === 'subscription' ? 'true' : 'false'}&components=buttons`;
+    script.setAttribute('data-intent', intent);
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Failed to load PayPal SDK'));
+    document.head.appendChild(script);
+  });
+}
+
 type Tab = 'credits' | 'subscription';
 
 const creditPlans = [
@@ -73,17 +95,31 @@ function PayPalCheckout({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendered = useRef(false);
+  const [sdkReady, setSdkReady] = useState(false);
+  const [sdkError, setSdkError] = useState('');
   const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL;
+  const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
 
+  // 加载对应 intent 的 SDK
   useEffect(() => {
-    if (rendered.current || !containerRef.current) return;
+    rendered.current = false;
+    setSdkReady(false);
+    setSdkError('');
+    const intent = billingType === 'credits' ? 'capture' : 'subscription';
+    loadPayPalSDK(CLIENT_ID, intent)
+      .then(() => setSdkReady(true))
+      .catch(() => setSdkError('PayPal SDK 加载失败，请刷新重试'));
+  }, [billingType, CLIENT_ID]);
+
+  // SDK 就绪后渲染按钮
+  useEffect(() => {
+    if (!sdkReady || rendered.current || !containerRef.current) return;
     const paypal = (window as any).paypal;
     if (!paypal) return;
 
     rendered.current = true;
 
     if (billingType === 'credits') {
-      // 一次性积分包
       paypal.Buttons({
         style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
         createOrder: async () => {
@@ -116,7 +152,7 @@ function PayPalCheckout({
         onError: (err: any) => console.error('PayPal error:', err),
       }).render(containerRef.current);
     } else {
-      // 月订阅
+      // 订阅模式
       paypal.Buttons({
         style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'subscribe' },
         createSubscription: async (_data: any, actions: any) => {
@@ -136,10 +172,13 @@ function PayPalCheckout({
           onSuccess({ subscriptionID: data.subscriptionID });
         },
         onCancel: () => onCancel(),
-        onError: (err: any) => console.error('PayPal error:', err),
+        onError: (err: any) => console.error('PayPal subscription error:', err),
       }).render(containerRef.current);
     }
-  }, []);
+  }, [sdkReady]);
+
+  if (sdkError) return <p className="text-red-500 text-sm text-center py-4">{sdkError}</p>;
+  if (!sdkReady) return <p className="text-gray-400 text-sm text-center py-4">正在加载支付组件...</p>;
 
   return <div ref={containerRef} className="mt-2" />;
 }

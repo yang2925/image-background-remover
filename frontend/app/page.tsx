@@ -185,7 +185,7 @@ export default function Home() {
               <div className="w-full max-w-xl border-2 border-dashed border-gray-200 rounded-2xl p-12 flex flex-col items-center bg-white/80">
                 <div className="text-5xl mb-4">🔐</div>
                 <p className="text-gray-700 font-semibold text-lg mb-2">登录后免费使用</p>
-                <p className="text-gray-400 text-sm mb-6">每月 10 ��免费额度，无需信用卡</p>
+                <p className="text-gray-400 text-sm mb-6">每月 10 次免费额度，无需信用卡</p>
                 <div className="g_id_signin" data-type="standard" data-shape="rectangular"
                   data-theme="filled_blue" data-text="signin_with" data-size="large" data-locale="zh_CN" />
               </div>

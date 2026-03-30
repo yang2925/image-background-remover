@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 
 type Tab = 'credits' | 'subscription';
 
@@ -146,11 +145,20 @@ function PayPalCheckout({
 }
 
 function PlanCard({ plan, billingType }: { plan: any; billingType: Tab }) {
-  const { data: session } = useSession();
   const [showModal, setShowModal] = useState(false);
   const [payStatus, setPayStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [payMessage, setPayMessage] = useState('');
-  const userId = (session?.user as any)?.id ?? null;
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('google_user');
+      if (saved) {
+        const u = JSON.parse(saved);
+        setUserId(u?.id ?? null);
+      }
+    } catch {}
+  }, []);
 
   const handleSuccess = (result: any) => {
     setPayStatus('success');

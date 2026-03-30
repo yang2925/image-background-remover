@@ -323,6 +323,14 @@ function PlanCard({ plan, billingType }: { plan: any; billingType: Tab }) {
 export default function PricingPage() {
   const [tab, setTab] = useState<Tab>('credits');
 
+  // 页面加载时预加载两种 SDK（避免点击时异步加载导致弹窗被拦截）
+  useEffect(() => {
+    const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
+    if (!CLIENT_ID) return;
+    // 默认先加载 capture（积分包），切到订阅 tab 时再切换
+    loadPayPalSDK(CLIENT_ID, 'capture').catch(() => {});
+  }, []);
+
   return (
     <div className="min-h-screen bg-white">
       {/* 顶部导航 */}
@@ -356,7 +364,10 @@ export default function PricingPage() {
         <div className="flex justify-center mb-10">
           <div className="bg-gray-100 rounded-xl p-1 flex gap-1">
             <button
-              onClick={() => setTab('credits')}
+              onClick={() => {
+                setTab('credits');
+                loadPayPalSDK(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!, 'capture').catch(() => {});
+              }}
               className={`px-6 py-2.5 rounded-lg text-sm font-medium transition ${
                 tab === 'credits' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -364,7 +375,10 @@ export default function PricingPage() {
               积分包
             </button>
             <button
-              onClick={() => setTab('subscription')}
+              onClick={() => {
+                setTab('subscription');
+                loadPayPalSDK(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!, 'subscription').catch(() => {});
+              }}
               className={`px-6 py-2.5 rounded-lg text-sm font-medium transition ${
                 tab === 'subscription' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}

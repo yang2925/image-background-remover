@@ -60,9 +60,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="canonical" href={siteUrl} />
-        {/* PayPal JS SDK - 通用模式，支持 capture 和 subscription */}
+        {/* PayPal JS SDK - 支持 capture 和 subscription */}
         <script
-          src={`https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&currency=USD&components=buttons`}
+          src={`https://www.paypal.com/sdk/js?client-id=${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}&currency=USD&intent=capture&vault=true&components=buttons`}
           data-sdk-integration-source="button-factory"
         />
         {/* Structured Data - WebApplication */}

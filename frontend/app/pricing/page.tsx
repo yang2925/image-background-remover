@@ -1,29 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-
-// 动态加载 PayPal SDK，支持按 intent 切换
-function loadPayPalSDK(clientId: string, intent: 'capture' | 'subscription'): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // 移除已有的 PayPal script（切换 intent 时需要重新加载）
-    const existing = document.getElementById('paypal-sdk');
-    if (existing) {
-      const currentIntent = existing.getAttribute('data-intent');
-      if (currentIntent === intent) { resolve(); return; }
-      existing.remove();
-      // 清除 PayPal 全局对象缓存
-      delete (window as any).paypal;
-    }
-    const script = document.createElement('script');
-    script.id = 'paypal-sdk';
-    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=USD&intent=${intent}&vault=${intent === 'subscription' ? 'true' : 'false'}&components=buttons`;
-    script.setAttribute('data-intent', intent);
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Failed to load PayPal SDK'));
-    document.head.appendChild(script);
-  });
-}
-
 type Tab = 'credits' | 'subscription';
 
 const creditPlans = [
@@ -95,90 +72,81 @@ function PayPalCheckout({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendered = useRef(false);
-  const [sdkReady, setSdkReady] = useState(false);
-  const [sdkError, setSdkError] = useState('');
   const WORKER_URL = process.env.NEXT_PUBLIC_WORKER_URL;
-  const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
 
-  // 加载对应 intent 的 SDK
   useEffect(() => {
-    rendered.current = false;
-    setSdkReady(false);
-    setSdkError('');
-    const intent = billingType === 'credits' ? 'capture' : 'subscription';
-    loadPayPalSDK(CLIENT_ID, intent)
-      .then(() => setSdkReady(true))
-      .catch(() => setSdkError('PayPal SDK 加载失败，请刷新重试'));
-  }, [billingType, CLIENT_ID]);
+    if (rendered.current || !containerRef.current) return;
 
-  // SDK 就绪后渲染按钮
-  useEffect(() => {
-    if (!sdkReady || rendered.current || !containerRef.current) return;
-    const paypal = (window as any).paypal;
-    if (!paypal) return;
+    // 等待 window.paypal 就绪（layout 里已加载 SDK）
+    const tryRender = () => {
+      const paypal = (window as any).paypal;
+      if (!paypal) {
+        setTimeout(tryRender, 200);
+        return;
+      }
+      if (rendered.current || !containerRef.current) return;
+      rendered.current = true;
 
-    rendered.current = true;
+      if (billingType === 'credits') {
+        paypal.Buttons({
+          style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
+          createOrder: async () => {
+            const res = await fetch(`${WORKER_URL}/api/paypal/create-order`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(userId ? { 'X-User-Id': userId } : {}),
+              },
+              body: JSON.stringify({ planId: plan.id }),
+            });
+            const data = await res.json();
+            if (!data.orderID) throw new Error(data.error || 'Failed to create order');
+            return data.orderID;
+          },
+          onApprove: async (data: any) => {
+            const res = await fetch(`${WORKER_URL}/api/paypal/capture-order`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(userId ? { 'X-User-Id': userId } : {}),
+              },
+              body: JSON.stringify({ orderID: data.orderID }),
+            });
+            const result = await res.json();
+            if (result.success) onSuccess(result);
+            else throw new Error(result.error || 'Capture failed');
+          },
+          onCancel: () => onCancel(),
+          onError: (err: any) => console.error('PayPal error:', err),
+        }).render(containerRef.current);
+      } else {
+        // 订阅模式
+        paypal.Buttons({
+          style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'subscribe' },
+          createSubscription: async (_data: any, actions: any) => {
+            const res = await fetch(`${WORKER_URL}/api/paypal/create-subscription`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(userId ? { 'X-User-Id': userId } : {}),
+              },
+              body: JSON.stringify({ planId: plan.id }),
+            });
+            const result = await res.json();
+            if (!result.subscriptionID) throw new Error(result.error || 'Failed to create subscription');
+            return result.subscriptionID;
+          },
+          onApprove: (data: any) => {
+            onSuccess({ subscriptionID: data.subscriptionID });
+          },
+          onCancel: () => onCancel(),
+          onError: (err: any) => console.error('PayPal subscription error:', err),
+        }).render(containerRef.current);
+      }
+    };
 
-    if (billingType === 'credits') {
-      paypal.Buttons({
-        style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'pay' },
-        createOrder: async () => {
-          const res = await fetch(`${WORKER_URL}/api/paypal/create-order`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(userId ? { 'X-User-Id': userId } : {}),
-            },
-            body: JSON.stringify({ planId: plan.id }),
-          });
-          const data = await res.json();
-          if (!data.orderID) throw new Error(data.error || 'Failed to create order');
-          return data.orderID;
-        },
-        onApprove: async (data: any) => {
-          const res = await fetch(`${WORKER_URL}/api/paypal/capture-order`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(userId ? { 'X-User-Id': userId } : {}),
-            },
-            body: JSON.stringify({ orderID: data.orderID }),
-          });
-          const result = await res.json();
-          if (result.success) onSuccess(result);
-          else throw new Error(result.error || 'Capture failed');
-        },
-        onCancel: () => onCancel(),
-        onError: (err: any) => console.error('PayPal error:', err),
-      }).render(containerRef.current);
-    } else {
-      // 订阅模式
-      paypal.Buttons({
-        style: { layout: 'vertical', color: 'blue', shape: 'rect', label: 'subscribe' },
-        createSubscription: async (_data: any, actions: any) => {
-          const res = await fetch(`${WORKER_URL}/api/paypal/create-subscription`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(userId ? { 'X-User-Id': userId } : {}),
-            },
-            body: JSON.stringify({ planId: plan.id }),
-          });
-          const result = await res.json();
-          if (!result.subscriptionID) throw new Error(result.error || 'Failed to create subscription');
-          return result.subscriptionID;
-        },
-        onApprove: (data: any) => {
-          onSuccess({ subscriptionID: data.subscriptionID });
-        },
-        onCancel: () => onCancel(),
-        onError: (err: any) => console.error('PayPal subscription error:', err),
-      }).render(containerRef.current);
-    }
-  }, [sdkReady]);
-
-  if (sdkError) return <p className="text-red-500 text-sm text-center py-4">{sdkError}</p>;
-  if (!sdkReady) return <p className="text-gray-400 text-sm text-center py-4">正在加载支付组件...</p>;
+    tryRender();
+  }, []);
 
   return <div ref={containerRef} className="mt-2" />;
 }
@@ -323,14 +291,6 @@ function PlanCard({ plan, billingType }: { plan: any; billingType: Tab }) {
 export default function PricingPage() {
   const [tab, setTab] = useState<Tab>('credits');
 
-  // 页面加载时预加载两种 SDK（避免点击时异步加载导致弹窗被拦截）
-  useEffect(() => {
-    const CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
-    if (!CLIENT_ID) return;
-    // 默认先加载 capture（积分包），切到订阅 tab 时再切换
-    loadPayPalSDK(CLIENT_ID, 'capture').catch(() => {});
-  }, []);
-
   return (
     <div className="min-h-screen bg-white">
       {/* 顶部导航 */}
@@ -364,10 +324,7 @@ export default function PricingPage() {
         <div className="flex justify-center mb-10">
           <div className="bg-gray-100 rounded-xl p-1 flex gap-1">
             <button
-              onClick={() => {
-                setTab('credits');
-                loadPayPalSDK(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!, 'capture').catch(() => {});
-              }}
+              onClick={() => setTab('credits')}
               className={`px-6 py-2.5 rounded-lg text-sm font-medium transition ${
                 tab === 'credits' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
@@ -375,10 +332,7 @@ export default function PricingPage() {
               积分包
             </button>
             <button
-              onClick={() => {
-                setTab('subscription');
-                loadPayPalSDK(process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!, 'subscription').catch(() => {});
-              }}
+              onClick={() => setTab('subscription')}
               className={`px-6 py-2.5 rounded-lg text-sm font-medium transition ${
                 tab === 'subscription' ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
               }`}
